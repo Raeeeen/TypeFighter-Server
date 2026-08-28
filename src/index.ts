@@ -26,7 +26,16 @@ io.on("connection", (socket) => {
   console.log(`Connected: ${socket.data.username} (${socket.id})`);
 
   // Matchmaking
-  socket.on("queue:join", () => joinQueue(io, socket, rooms));
+  socket.on(
+    "queue:join",
+    (
+      profile: {
+        avatar?: string | null;
+        country?: string | null;
+        rank?: number | null;
+      } = {},
+    ) => joinQueue(io, socket, rooms, profile),
+  );
   socket.on("queue:leave", () => leaveQueue(socket));
 
   // Custom lobby
@@ -50,6 +59,18 @@ io.on("connection", (socket) => {
   socket.on("lobby:join", ({ code }: { code: string }) => {
     const room = rooms.get(code);
     if (!room) return socket.emit("lobby:error", "Room not found");
+    const alreadyIn = room.players.some((p) => p.userId === socket.data.userId);
+
+    if (alreadyIn) {
+      const existing = room.players.find(
+        (p) => p.userId === socket.data.userId,
+      )!;
+      existing.id = socket.id;
+      socket.join(code);
+      socket.emit("lobby:created", room);
+      return;
+    }
+
     if (room.players.length >= room.maxPlayers)
       return socket.emit("lobby:error", "Room full");
     if (room.status !== "waiting")
@@ -64,6 +85,45 @@ io.on("connection", (socket) => {
     socket.join(code);
     io.to(code).emit("lobby:updated", room);
   });
+
+  socket.on("lobby:leave", ({ code }: { code: string }) => {
+    const room = rooms.get(code);
+    if (!room) return;
+
+    room.players = room.players.filter((p) => p.id !== socket.id);
+    socket.leave(code);
+
+    if (room.players.length === 0) {
+      rooms.delete(code);
+      return;
+    }
+
+    if (room.hostId === socket.id) {
+      room.hostId = room.players[0].id;
+      room.players[0].ready = true;
+    }
+
+    io.to(code).emit("lobby:updated", room);
+  });
+
+  socket.on(
+    "lobby:kick",
+    ({ code, targetId }: { code: string; targetId: string }) => {
+      const room = rooms.get(code);
+      if (!room || room.hostId !== socket.id) return;
+      if (targetId === socket.id) return;
+
+      room.players = room.players.filter((p) => p.id !== targetId);
+
+      const kickedSocket = io.sockets.sockets.get(targetId);
+      if (kickedSocket) {
+        kickedSocket.leave(code);
+        kickedSocket.emit("lobby:kicked");
+      }
+
+      io.to(code).emit("lobby:updated", room);
+    },
+  );
 
   socket.on("lobby:ready", ({ code }: { code: string }) => {
     const room = rooms.get(code);

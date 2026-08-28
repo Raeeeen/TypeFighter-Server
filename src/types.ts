@@ -9,6 +9,9 @@ export interface Player {
   wpm?: number;
   accuracy?: number;
   outcome?: "victory" | "defeat";
+  avatar?: string | null;
+  country?: string | null;
+  rank?: number | null;
 }
 
 export interface Room {

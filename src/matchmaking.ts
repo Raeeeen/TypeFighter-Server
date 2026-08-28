@@ -3,14 +3,28 @@ import type { Room, Player } from "./types.js";
 import { createRoom, startGame } from "./lobby.js";
 
 const queue: Player[] = [];
-const QUEUE_SIZE = 2; 
+const QUEUE_SIZE = 2;
 
-export function joinQueue(io: Server, socket: Socket, rooms: Map<string, Room>) {
+type QueueProfile = {
+  avatar?: string | null;
+  country?: string | null;
+  rank?: number | null;
+};
+
+export function joinQueue(
+  io: Server,
+  socket: Socket,
+  rooms: Map<string, Room>,
+  profile: QueueProfile = {},
+) {
   const player: Player = {
     id: socket.id,
     userId: socket.data.userId,
     username: socket.data.username,
     ready: true,
+    avatar: profile.avatar ?? null,
+    country: profile.country ?? null,
+    rank: profile.rank ?? null,
   };
 
   queue.push(player);

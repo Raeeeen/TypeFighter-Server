@@ -6,7 +6,6 @@ export function registerGameHandlers(
   socket: Socket,
   rooms: Map<string, Room>,
 ) {
-  // Player announces which random floor they got, so others can load matching assets for the mirror
   socket.on(
     "game:ready",
     ({ code, floor }: { code: string; floor: number }) => {
@@ -69,7 +68,6 @@ export function registerGameHandlers(
     }
   });
 
-  // Relay a correct hit / mistake so opponents' mirror scenes can play the matching animation
   socket.on(
     "game:action",
     ({ code, type }: { code: string; type: "correct" | "mistake" }) => {
