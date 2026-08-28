@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Environment variables (contains AUTH_SECRET — never commit this)
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+
+# Logs
+npm-debug.log*
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
