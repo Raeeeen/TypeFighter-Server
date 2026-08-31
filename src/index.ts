@@ -23,8 +23,6 @@ const rooms = new Map<string, Room>();
 io.use(authenticateSocket);
 
 io.on("connection", (socket) => {
-  console.log(`Connected: ${socket.data.username} (${socket.id})`);
-
   // Matchmaking
   socket.on(
     "queue:join",
@@ -65,9 +63,15 @@ io.on("connection", (socket) => {
       const existing = room.players.find(
         (p) => p.userId === socket.data.userId,
       )!;
+
+      if (room.hostId === existing.id) {
+        room.hostId = socket.id;
+      }
+
       existing.id = socket.id;
       socket.join(code);
       socket.emit("lobby:created", room);
+      io.to(code).emit("lobby:updated", room);
       return;
     }
 
@@ -128,6 +132,8 @@ io.on("connection", (socket) => {
   socket.on("lobby:ready", ({ code }: { code: string }) => {
     const room = rooms.get(code);
     if (!room) return;
+    if (room.status !== "waiting") return;
+
     const player = room.players.find((p) => p.id === socket.id);
     if (player) player.ready = !player.ready;
     io.to(code).emit("lobby:updated", room);
@@ -135,7 +141,16 @@ io.on("connection", (socket) => {
 
   socket.on("lobby:start", ({ code }: { code: string }) => {
     const room = rooms.get(code);
-    if (!room || room.hostId !== socket.id) return;
+    if (!room) return socket.emit("lobby:error", "Room not found");
+
+    if (room.hostId !== socket.id) {
+      return socket.emit("lobby:error", "Only the host can start the match");
+    }
+
+    if (room.status !== "waiting") {
+      return socket.emit("lobby:error", "Match already starting");
+    }
+
     if (room.players.length < 2)
       return socket.emit("lobby:error", "Need at least 2 players");
 
